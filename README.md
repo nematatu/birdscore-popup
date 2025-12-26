@@ -10,10 +10,14 @@ BIRDSCOREのライブスコアをポップアップで表示するChrome拡張�
 
 ## 設定
 
-`popup.js` 内の `CONFIG` を変更すると大会を切り替えられます。
+大会は自動検出します。取得に失敗した場合のみ `CONFIG.tournamentId` を既定値として使用します。
 
-- `tournamentId`: 大会ID
 - `baseUrl`: BIRDSCOREのベースURL
+- `tournamentId`: 自動検出できない場合の既定大会ID
+- `tournamentDiscoveryPaths`: 大会一覧取得の試行パス
+- `tournamentCacheTtlMs`: 大会一覧のキャッシュ時間
+
+チーム名短縮は `team-aliases.json` の `aliases` に `正式名称: 略称` を追加します。
 
 ## 表示内容
 

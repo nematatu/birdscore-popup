@@ -1,7 +1,7 @@
 :root {
   --blue: #002a7e;
   --red: #bc002a;
-  --bg: #d0d0d0;
+  --bg: white;
   --ink: #222222;
   --muted: #666666;
   --card-border: #a7a7a7;
@@ -37,13 +37,18 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--red);
-  color: #ffffff;
+  background: var(--blue);
+  color: #ffffff; 
   font-weight: 700;
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 2px;
   letter-spacing: 0.04em;
+}
+
+.topbar-icon {
+  flex: 0 0 14px;
+  display: block;
 }
 
 .topbar-right {
@@ -126,7 +131,7 @@ main {
   border: 1px solid var(--card-border);
   border-radius: 2px;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .match-band {
@@ -188,6 +193,76 @@ main {
   flex-direction: column;
   align-items: center;
   min-width: 32px;
+}
+
+.court-youtube {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: yellow;
+  border: 1px solid #bdbdbd;
+  border-radius: 2px;
+  padding: 2px 4px;
+  text-decoration: none;
+  color: #d60000;
+  position: relative;
+}
+
+.court-youtube:hover {
+  border-color: #d60000;
+}
+
+.youtube-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: #d60000;
+}
+
+.court-youtube .link-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  margin-left: 0;
+  color: #444444;
+}
+
+.court-youtube::after {
+  content: "YouTubeの配信コートへアクセス";
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  background: #222222;
+  color: #ffffff;
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.court-youtube::before {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: calc(100% + 2px);
+  border: 4px solid transparent;
+  border-top-color: #222222;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.court-youtube:hover::after,
+.court-youtube:hover::before {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .band-court-num {

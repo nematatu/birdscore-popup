@@ -29,7 +29,9 @@
     finishedList: document.getElementById("finished-list"),
     finishedCount: document.getElementById("finished-count"),
     status: document.getElementById("status"),
-    refresh: document.getElementById("refresh")
+    refresh: document.getElementById("refresh"),
+    youtubeTestLink: document.getElementById("youtube-test-link"),
+    youtubeTestMeta: document.getElementById("youtube-test-meta")
   };
 
   let tournament = null;
@@ -43,6 +45,7 @@
   let aliasLoaded = false;
   let courtYoutubeMap = new Map();
   let courtYoutubeLoaded = false;
+  let courtYoutubeSource = "";
   let eventMap = new Map();
   let roundMap = new Map();
   let liveBusy = false;
@@ -247,6 +250,55 @@
     return { present: false, value: null };
   };
 
+  const buildRemoteConfigUrl = (force = false) => {
+    if (!CONFIG.remoteConfigUrl) return "";
+    if (!force) return CONFIG.remoteConfigUrl;
+    try {
+      const url = new URL(CONFIG.remoteConfigUrl);
+      url.searchParams.set("_", String(Date.now()));
+      return url.toString();
+    } catch (err) {
+      const sep = CONFIG.remoteConfigUrl.includes("?") ? "&" : "?";
+      return `${CONFIG.remoteConfigUrl}${sep}_=${Date.now()}`;
+    }
+  };
+
+  const updateYoutubeTestLink = () => {
+    if (!els.youtubeTestLink) return;
+    const entries = Array.from(courtYoutubeMap.entries())
+      .map(([key, value]) => [String(key).trim(), value])
+      .filter(([, value]) => value);
+    if (!entries.length) {
+      els.youtubeTestLink.classList.add("disabled");
+      els.youtubeTestLink.setAttribute("aria-disabled", "true");
+      els.youtubeTestLink.removeAttribute("title");
+      els.youtubeTestLink.href = "#";
+      els.youtubeTestLink.textContent = "リンク確認";
+      if (els.youtubeTestMeta) {
+        els.youtubeTestMeta.textContent = "未取得";
+      }
+      return;
+    }
+    entries.sort((a, b) => {
+      const aNum = Number.parseInt(a[0], 10);
+      const bNum = Number.parseInt(b[0], 10);
+      if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+      return a[0].localeCompare(b[0]);
+    });
+    const [courtKey, url] = entries[0];
+    const label = courtKey.includes("コート") ? courtKey : `コート${courtKey}`;
+    els.youtubeTestLink.classList.remove("disabled");
+    els.youtubeTestLink.setAttribute("aria-disabled", "false");
+    els.youtubeTestLink.href = url;
+    els.youtubeTestLink.textContent = `${label} を開く`;
+    els.youtubeTestLink.title = url;
+    if (els.youtubeTestMeta) {
+      const sourceLabel =
+        courtYoutubeSource === "remote" ? "リモート" : courtYoutubeSource === "local" ? "ローカル" : "不明";
+      els.youtubeTestMeta.textContent = `取得元: ${sourceLabel}`;
+    }
+  };
+
   const applyConfigData = data => {
     if (!data || typeof data !== "object") {
       return { aliases: false, courts: false };
@@ -268,20 +320,25 @@
       ]);
       courtYoutubeMap = new Map(entries);
       courtYoutubeLoaded = true;
+      courtYoutubeSource = "remote";
       courtApplied = true;
+    }
+    if (courtApplied) {
+      updateYoutubeTestLink();
     }
     return { aliases: aliasApplied, courts: courtApplied };
   };
 
   const loadRemoteConfig = async force => {
-    if (!CONFIG.remoteConfigUrl) return null;
+    const url = buildRemoteConfigUrl(force);
+    if (!url) return null;
     const cached = await storageGet(REMOTE_CONFIG_KEY);
     if (!force) {
       if (cached?.data) return cached.data;
       return null;
     }
     try {
-      const res = await fetch(CONFIG.remoteConfigUrl, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return null;
       const json = await res.json();
       await storageSet({ [REMOTE_CONFIG_KEY]: { ts: Date.now(), data: json } });
@@ -292,10 +349,11 @@
     }
   };
 
-  const fetchRemoteConfig = async () => {
-    if (!CONFIG.remoteConfigUrl) return null;
+  const fetchRemoteConfig = async (force = false) => {
+    const url = buildRemoteConfigUrl(force);
+    if (!url) return null;
     try {
-      const res = await fetch(CONFIG.remoteConfigUrl, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -328,6 +386,8 @@
       const res = await fetch(chrome.runtime.getURL("court-youtube.json"));
       if (!res.ok) {
         courtYoutubeLoaded = true;
+        courtYoutubeSource = "";
+        updateYoutubeTestLink();
         return false;
       }
       const json = await res.json();
@@ -337,10 +397,14 @@
       ]);
       courtYoutubeMap = new Map(entries);
       courtYoutubeLoaded = true;
+      courtYoutubeSource = "local";
+      updateYoutubeTestLink();
       return true;
     } catch (err) {
       console.warn("Court YouTube map load failed", err);
       courtYoutubeLoaded = true;
+      courtYoutubeSource = "";
+      updateYoutubeTestLink();
       return false;
     }
   };
@@ -356,6 +420,9 @@
     }
     if (!applied.courts && !courtYoutubeLoaded) {
       await loadLocalCourtYoutube();
+    }
+    if (!applied.courts && courtYoutubeLoaded) {
+      updateYoutubeTestLink();
     }
   };
 
@@ -374,6 +441,7 @@
     if (!applied.courts && !courtYoutubeLoaded) {
       await loadLocalCourtYoutube();
     }
+    updateYoutubeTestLink();
     teamMap = new Map();
     await refreshAll();
   };
@@ -1142,15 +1210,18 @@
     }
   };
 
-  const refreshAll = async () => {
+  const refreshAll = async ({ forceRemote = false } = {}) => {
     if (!hasCachedView) {
       setStatus("更新中...");
+    }
+    if (forceRemote) {
+      await loadConfigMaps({ forceRemote: true });
     }
     await Promise.all([loadLiveMatches(), loadFinishedMatches()]);
   };
 
   if (els.refresh) {
-    els.refresh.addEventListener("click", refreshAll);
+    els.refresh.addEventListener("click", () => refreshAll({ forceRemote: true }));
   }
 
   hydrateCachedView();
